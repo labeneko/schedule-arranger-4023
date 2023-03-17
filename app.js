@@ -6,6 +6,7 @@ var logger = require('morgan');
 const helmet = require('helmet');
 const session = require('express-session');
 const passport = require('passport');
+const csurf = require("tiny-csrf");
 
 // モデルの読み込み
 const User = require('./models/user');
@@ -69,12 +70,22 @@ app.set('view engine', 'pug');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+app.use(cookieParser('nyobiko_signed_cookies')); // セキュリティ強化のために、署名付きCookieにする
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use(session({ secret: 'e55be81b307c1c09', resave: false, saveUninitialized: false }));
+// セキュリティ強化のために、secretの長さを32bit以上にする
+app.use(session({ secret: '1c3586b4d516db8342c8280e2e4c29e9de52c8759643f41841b1c644f23a1cf7', resave: false, saveUninitialized: false }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// セキュリティ強化のために、secretの長さを32bitにする
+app.use(
+  csurf(
+    "nyobikosecretsecret9876543212345",
+    ["POST"], 
+    [/.*\/(candidates|comments)\.*/i] // ライブラリ変更によって、POSTリクエストすべてにCSRFチェックが走るようになりました。出欠変更とコメントはCSRF対策していないため、一時的に除外しています。テキストで、候補日とコメントをCSRF対策するよう変更が必要そうですね。
+  )
+);
 
 app.use('/', indexRouter);
 app.use('/login', loginRouter);
